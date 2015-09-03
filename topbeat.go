@@ -21,6 +21,7 @@ type Topbeat struct {
 	procsMap     ProcsMap
 	lastCpuTimes *CpuTimes
 	TbConfig     ConfigSettings
+	Beat *beat.Beat
 }
 
 func (tb *Topbeat) Config(b *beat.Beat) error {
@@ -50,6 +51,7 @@ func (tb *Topbeat) Config(b *beat.Beat) error {
 }
 
 func (tb *Topbeat) Setup(b *beat.Beat) error {
+	tb.Beat = b
 	return nil
 }
 
@@ -64,15 +66,15 @@ func (t *Topbeat) Run(b *beat.Beat) error {
 	for t.isAlive {
 		time.Sleep(t.period)
 
-		err = t.exportSystemStats(b)
+		err = t.exportSystemStats()
 		if err != nil {
 			logp.Err("Error reading system stats: %v", err)
 		}
-		err = t.exportProcStats(b)
+		err = t.exportProcStats()
 		if err != nil {
 			logp.Err("Error reading proc stats: %v", err)
 		}
-		err = t.exportFileSystemStats(b)
+		err = t.exportFileSystemStats()
 		if err != nil {
 			logp.Err("Error reading fs stats: %v", err)
 		}
@@ -113,7 +115,7 @@ func (t *Topbeat) initProcStats() {
 	}
 }
 
-func (t *Topbeat) exportProcStats(b *beat.Beat) error {
+func (t *Topbeat) exportProcStats() error {
 
 	if len(t.procs) == 0 {
 		return nil
@@ -149,13 +151,13 @@ func (t *Topbeat) exportProcStats(b *beat.Beat) error {
 				"proc.mem":   process.Mem,
 				"proc.cpu":   process.Cpu,
 			}
-			b.Events <- event
+			t.Beat.Events <- event
 		}
 	}
 	return nil
 }
 
-func (t *Topbeat) exportSystemStats(b *beat.Beat) error {
+func (t *Topbeat) exportSystemStats() error {
 
 	load_stat, err := GetSystemLoad()
 	if err != nil {
@@ -193,12 +195,12 @@ func (t *Topbeat) exportSystemStats(b *beat.Beat) error {
 		"swap":      swap_stat,
 	}
 
-	b.Events <- event
+	t.Beat.Events <- event
 
 	return nil
 }
 
-func (t *Topbeat) exportFileSystemStats(b *beat.Beat) error {
+func (t *Topbeat) exportFileSystemStats() error {
 
 	fss, err := GetFileSystemList()
 	if err != nil {
@@ -219,7 +221,7 @@ func (t *Topbeat) exportFileSystemStats(b *beat.Beat) error {
 			"type":      "filesystem",
 			"fs":        fs_stat,
 		}
-		b.Events <- event
+		t.Beat.Events <- event
 	}
 
 	return nil
