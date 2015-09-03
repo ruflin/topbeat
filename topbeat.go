@@ -21,7 +21,7 @@ type Topbeat struct {
 	procsMap     ProcsMap
 	lastCpuTimes *CpuTimes
 	TbConfig     ConfigSettings
-	Beat *beat.Beat
+	Beat         *beat.Beat
 }
 
 func (tb *Topbeat) Config(b *beat.Beat) error {
