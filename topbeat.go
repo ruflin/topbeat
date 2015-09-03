@@ -9,7 +9,7 @@ import (
 	"github.com/elastic/libbeat/cfgfile"
 	"github.com/elastic/libbeat/common"
 	"github.com/elastic/libbeat/logp"
-	"github.com/elastic/libbeat/publisher"
+	//"github.com/elastic/libbeat/publisher"
 )
 
 type ProcsMap map[int]*Process
@@ -21,7 +21,6 @@ type Topbeat struct {
 	procsMap     ProcsMap
 	lastCpuTimes *CpuTimes
 	TbConfig     ConfigSettings
-	events       chan common.MapStr
 }
 
 func (tb *Topbeat) Config(b *beat.Beat) error {
@@ -51,8 +50,6 @@ func (tb *Topbeat) Config(b *beat.Beat) error {
 }
 
 func (tb *Topbeat) Setup(b *beat.Beat) error {
-
-	tb.events = publisher.Publisher.Queue
 	return nil
 }
 
@@ -67,15 +64,15 @@ func (t *Topbeat) Run(b *beat.Beat) error {
 	for t.isAlive {
 		time.Sleep(t.period)
 
-		err = t.exportSystemStats()
+		err = t.exportSystemStats(b)
 		if err != nil {
 			logp.Err("Error reading system stats: %v", err)
 		}
-		err = t.exportProcStats()
+		err = t.exportProcStats(b)
 		if err != nil {
 			logp.Err("Error reading proc stats: %v", err)
 		}
-		err = t.exportFileSystemStats()
+		err = t.exportFileSystemStats(b)
 		if err != nil {
 			logp.Err("Error reading fs stats: %v", err)
 		}
@@ -116,7 +113,7 @@ func (t *Topbeat) initProcStats() {
 	}
 }
 
-func (t *Topbeat) exportProcStats() error {
+func (t *Topbeat) exportProcStats(b *beat.Beat) error {
 
 	if len(t.procs) == 0 {
 		return nil
@@ -152,13 +149,13 @@ func (t *Topbeat) exportProcStats() error {
 				"proc.mem":   process.Mem,
 				"proc.cpu":   process.Cpu,
 			}
-			t.events <- event
+			b.Events <- event
 		}
 	}
 	return nil
 }
 
-func (t *Topbeat) exportSystemStats() error {
+func (t *Topbeat) exportSystemStats(b *beat.Beat) error {
 
 	load_stat, err := GetSystemLoad()
 	if err != nil {
@@ -196,12 +193,12 @@ func (t *Topbeat) exportSystemStats() error {
 		"swap":      swap_stat,
 	}
 
-	t.events <- event
+	b.Events <- event
 
 	return nil
 }
 
-func (t *Topbeat) exportFileSystemStats() error {
+func (t *Topbeat) exportFileSystemStats(b *beat.Beat) error {
 
 	fss, err := GetFileSystemList()
 	if err != nil {
@@ -222,7 +219,7 @@ func (t *Topbeat) exportFileSystemStats() error {
 			"type":      "filesystem",
 			"fs":        fs_stat,
 		}
-		t.events <- event
+		b.Events <- event
 	}
 
 	return nil
